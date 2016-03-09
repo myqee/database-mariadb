@@ -1,31 +1,32 @@
 <?php
+namespace MyQEE\Database;
 
 /**
  * 数据库MySQLI返回类
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
- * @category   Driver
- * @package    Database
+ * @category   Database
+ * @package    Driver
  * @subpackage MySQLI
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Driver_Database_Driver_MySQLI_Result extends Database_Result
+class Driver_MySQLI_Result extends Result
 {
-    protected function release_resource()
+    protected function releaseResource()
     {
-        if (is_resource($this->_result))
+        if (is_resource($this->result))
         {
-            mysqli_free_result($this->_result);
+            \mysqli_free_result($this->result);
         }
-        $this->_result = null;
+        $this->result = null;
     }
 
-    protected function total_count()
+    protected function totalCount()
     {
-        if ($this->_result)
+        if ($this->result)
         {
-            $count = @mysqli_num_rows($this->_result);
+            $count = @mysqli_num_rows($this->result);
             if (!$count>0)$count = 0;
         }
         else
@@ -42,9 +43,9 @@ class Driver_Database_Driver_MySQLI_Result extends Database_Result
         {
             return true;
         }
-        elseif ($this->offsetExists($offset) && $this->_result && mysqli_data_seek($this->_result, $offset))
+        elseif ($this->offsetExists($offset) && $this->result && mysqli_data_seek($this->result, $offset))
         {
-            $this->_current_row = $this->_internal_row = $offset;
+            $this->currentRow = $this->internalRow = $offset;
 
             return true;
         }
@@ -54,8 +55,8 @@ class Driver_Database_Driver_MySQLI_Result extends Database_Result
         }
     }
 
-    protected function fetch_assoc()
+    protected function fetchAssoc()
     {
-        return mysqli_fetch_assoc($this->_result);
+        return mysqli_fetch_assoc($this->result);
     }
 }

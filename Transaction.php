@@ -1,28 +1,33 @@
 <?php
 
+namespace MyQEE\Database;
+
+use \Exception;
+
 /**
  * MySQLI事务
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
- * @category   Driver
- * @package    Database
+ * @category   Database
+ * @package    Driver
  * @subpackage MySQLI
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
+class Driver_MySQLI_Transaction extends Transaction
 {
     /**
      * 当前连接ID
      * @var string
      */
-    protected $_connection_id;
+    protected $connectionId;
 
-    protected static $transactions = array();
+    protected static $transactions = [];
 
     /**
      * 开启事务
-     * @return Database_Driver_MySQLI_Transaction
+     *
+     * @return Driver_MySQLI_Transaction
      */
     public function start()
     {
@@ -31,19 +36,20 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
             throw new Exception('transaction has started');
         }
         # 推动连接主数据库
-        $this->db_driver->connect(true);
+        $this->driver->connect(true);
+
         # 获取连接ID
-        $this->_connection_id = $this->db_driver->connection_id();
+        $this->connectionId = $this->driver->connectionId();
         # 获取唯一ID
         $this->id = uniqid('TaId_' . rand());
 
-        if (isset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]))
+        if (isset(static::$transactions[$this->connectionId]))
         {
             # 已存在事务，则该事务为子事务
-            if ($this->_set_save_point())
+            if ($this->setSavePoint())
             {
                 //保存事务点
-                Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id][$this->id] = true;
+                static::$transactions[$this->connectionId][$this->id] = true;
             }
             else
             {
@@ -55,16 +61,18 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
         else
         {
             # 开启新事务
-            $this->_query('SET AUTOCOMMIT=0;');
-            if (true === $this->_query('START TRANSACTION;'))
+            $this->query('SET AUTOCOMMIT=0;');
+
+            if (true === $this->query('START TRANSACTION;'))
             {
                 # 如果没有建立到当前主服务器的连接，该操作会隐式的建立
-                Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id] = array($this->id => true);
+                static::$transactions[$this->connectionId] = [$this->id => true];
             }
             else
             {
                 $this->id = null;
-                # 开启事务失败。
+
+                # 开启事务失败
                 throw new Exception('start transaction error');
             }
         }
@@ -80,29 +88,35 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
      */
     public function commit()
     {
-        if (!$this->id || ! $this->_haveid()) return false;
+        if (!$this->id || ! $this->haveId()) return false;
 
-        if ($this->is_root())
+        if ($this->isRoot())
         {
             # 父事务
-            while (count(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]) > 1)
+            while (count(static::$transactions[$this->connectionId]) > 1)
             {
                 # 还有没有提交的子事务
-                end(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]);
-                $subid = key(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]);
-                if (!$this->_release_save_point($subid))
+                end(static::$transactions[$this->connectionId]);
+
+                $subId = key(static::$transactions[$this->connectionId]);
+
+                if (!$this->releaseSavePoint($subId))
                 {
                     throw new Exception('commit error');
                 }
             }
-            $status = $this->_query('COMMIT;');
-            $this->_query('SET AUTOCOMMIT=1;');
-            if ($status) unset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]);
+            $status = $this->query('COMMIT;');
+            $this->query('SET AUTOCOMMIT=1;');
+
+            if ($status)
+            {
+                unset(static::$transactions[$this->connectionId]);
+            }
         }
         else
         {
             # 子事务
-            $status = $this->_release_save_point($this->id);
+            $status = $this->releaseSavePoint($this->id);
         }
         if ($status)
         {
@@ -118,28 +132,29 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
     /**
      * 撤消事务，支持子事务
      *
-     * @return Bollean true:成功；false:失败
+     * @return bool true:成功；false:失败
      */
     public function rollback()
     {
         if (!$this->id) return false;
-        if (!$this->_haveid()) return false;
+        if (!$this->haveId()) return false;
 
-        if ($this->is_root())
+        if ($this->isRoot())
         {
             //父事务
-            $status = $this->_query('ROLLBACK;');
-            $this->_query('SET AUTOCOMMIT=1;');
+            $status = $this->query('ROLLBACK;');
+            $this->query('SET AUTOCOMMIT=1;');
             if ($status)
             {
-                unset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]);
+                unset(static::$transactions[$this->connectionId]);
             }
         }
         else
         {
             //子事务
-            $status = $this->_query("ROLLBACK TO SAVEPOINT {$this->id};");
-            $this->_release_save_point($this->id);
+            $status = $this->query("ROLLBACK TO SAVEPOINT {$this->id};");
+
+            $this->releaseSavePoint($this->id);
         }
         if ($status)
         {
@@ -155,10 +170,11 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
     /**
      * 是否父事务
      */
-    public function is_root()
+    public function isRoot()
     {
         if (!$this->id) return false;
-        return isset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]) && key(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]) == $this->id;
+
+        return isset(static::$transactions[$this->connectionId]) && key(static::$transactions[$this->connectionId]) == $this->id;
     }
 
     /**
@@ -166,12 +182,12 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
      *
      * @return Boolean  true:成功；false:失败
      */
-    protected function _set_save_point()
+    protected function setSavePoint()
     {
-        if (!$this->is_root())
+        if (!$this->isRoot())
         {
             //只有子事务才需要保存点
-            if ( true === $this->_query("SAVEPOINT {$this->id};") )
+            if (true === $this->query("SAVEPOINT {$this->id};"))
             {
                 return true;
             }
@@ -184,13 +200,13 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
      * 释放事务保存点
      * @return Boolean  true:成功；false:失败
      */
-    protected function _release_save_point($id)
+    protected function releaseSavePoint($id)
     {
-        if (!$this->is_root())
+        if (!$this->isRoot())
         {
-            if (true === $this->_query("RELEASE SAVEPOINT {$id};"))
+            if (true === $this->query("RELEASE SAVEPOINT {$id};"))
             {
-                unset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id][$id]);
+                unset(static::$transactions[$this->connectionId][$id]);
                 return true;
             }
         }
@@ -201,9 +217,9 @@ class Driver_Database_Driver_MySQLI_Transaction extends Database_Transaction
      * 在事务列表中是否存在
      * @return boolean
      */
-    protected function _haveid()
+    protected function haveId()
     {
-        return isset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id]) && isset(Database_Driver_MySQLI_Transaction::$transactions[$this->_connection_id][$this->id]);
+        return isset(static::$transactions[$this->connectionId]) && isset(static::$transactions[$this->connectionId][$this->id]);
     }
 
 }
