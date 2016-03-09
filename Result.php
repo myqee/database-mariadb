@@ -1,5 +1,5 @@
 <?php
-namespace MyQEE\Database;
+namespace MyQEE\Database\MySQLI;
 
 /**
  * 数据库MySQLI返回类
@@ -11,7 +11,7 @@ namespace MyQEE\Database;
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Driver_MySQLI_Result extends Result
+class Result extends \MyQEE\Database\Result
 {
     protected function releaseResource()
     {

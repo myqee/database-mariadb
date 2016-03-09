@@ -1,6 +1,6 @@
 <?php
 
-namespace MyQEE\Database;
+namespace MyQEE\Database\MySQLI;
 
 use \Exception;
 
@@ -14,7 +14,7 @@ use \Exception;
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Driver_MySQLI_Transaction extends Transaction
+class Transaction extends \MyQEE\Database\Transaction
 {
     /**
      * 当前连接ID
@@ -27,7 +27,7 @@ class Driver_MySQLI_Transaction extends Transaction
     /**
      * 开启事务
      *
-     * @return Driver_MySQLI_Transaction
+     * @return $this
      */
     public function start()
     {

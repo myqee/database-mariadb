@@ -1,6 +1,7 @@
 <?php
-namespace MyQEE\Database;
+namespace MyQEE\Database\MySQLI;
 
+use MyQEE\Database\Driver;
 use \Exception;
 
 /**
@@ -13,7 +14,7 @@ use \Exception;
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Driver_MySQLI_Factory extends Driver
+class Factory extends Driver
 {
     /**
      * MySQL使用反引号标识符
@@ -386,7 +387,7 @@ class Driver_MySQLI_Factory extends Driver
     /**
      * 切换表
      *
-     * @param string DB
+     * @param string \MyQEE\Database\DB
      * @return void
      */
     public function selectDatabase($database)
@@ -482,7 +483,7 @@ class Driver_MySQLI_Factory extends Driver
      * @param string $sql 查询语句
      * @param string $asObject 是否返回对象
      * @param boolean $connectionType 是否使用主数据库，不设置则自动判断
-     * @return Driver_MySQLI_Result
+     * @return \MyQEE\Database\Driver\MySQLI\Result
      */
     public function query($sql, $asObject = null, $connectionType = null)
     {
