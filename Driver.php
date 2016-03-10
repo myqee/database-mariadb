@@ -1,7 +1,6 @@
 <?php
 namespace MyQEE\Database\MySQLi;
 
-use MyQEE\Database\Driver;
 use \Exception;
 
 /**
@@ -14,7 +13,7 @@ use \Exception;
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Factory extends Driver
+class Driver extends \MyQEE\Database\Driver
 {
     /**
      * MySQL使用反引号标识符
@@ -41,33 +40,33 @@ class Factory extends Driver
      * 记录当前连接所对应的数据库
      * @var array
      */
-    protected static $currentDatabases = array();
+    protected static $currentDatabases = [];
 
     /**
      * 记录当前数据库所对应的页面编码
      * @var array
      */
-    protected static $currentCharset = array();
+    protected static $currentCharset = [];
 
     /**
      * 链接寄存器
      * @var array
      */
-    protected static $connectionInstance = array();
+    protected static $connectionInstance = [];
 
     /**
      * 链接寄存器使用数
      *
      * @var array
      */
-    protected static $_connectionInstanceCount = array();
+    protected static $connectionInstanceCount = [];
 
     /**
      * 记录connection id所对应的hostname
      *
      * @var array
      */
-    protected static $_currentConnectionIdToHostname = array();
+    protected static $currentConnectionIdToHostname = [];
 
     /**
      * 连接数据库
@@ -80,7 +79,7 @@ class Factory extends Driver
     {
         if (null !== $useConnectionType)
         {
-            $this->_setConnectionType($useConnectionType);
+            $this->setConnectionType($useConnectionType);
         }
 
         $connectionId = $this->connectionId();
@@ -90,7 +89,7 @@ class Factory extends Driver
 
         if (!$connectionId || !isset(static::$connectionInstance[$connectionId]))
         {
-            $this->_connect();
+            $this->doConnect();
         }
 
         # 如果有当前连接，检查连接
@@ -132,9 +131,9 @@ class Factory extends Driver
         }
     }
 
-    protected function _connect()
+    protected function doConnect()
     {
-        if ($this->_tryUseExistsConnection())
+        if ($this->tryUseExistsConnection())
         {
             return;
         }
@@ -145,28 +144,28 @@ class Factory extends Driver
         # 错误服务器
         static $errorHost = array();
 
-        $last_error = null;
+        $lastError = null;
         while (true)
         {
-            $hostname = $this->_getRandHost($errorHost);
+            $hostname = $this->getRandHost($errorHost);
 
             if (false === $hostname)
             {
                 if(HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->warn($errorHost, 'errorHost');
 
-                if ($last_error && $last_error instanceof Exception)throw $last_error;
+                if ($lastError && $lastError instanceof Exception)throw $lastError;
                 throw new Exception('connect mysqli server error.');
             }
 
-            $connectionId = $this->_getConnectionHash($hostname, $port, $username);
-            static::$_currentConnectionIdToHostname[$connectionId] = $username .'@'. $hostname .':'. $port;
+            $connectionId                                         = $this->getConnectionHash($hostname, $port, $username);
+            static::$currentConnectionIdToHostname[$connectionId] = $username .'@'. $hostname .':'. $port;
 
             try
             {
                 $time = microtime(true);
 
-                $error_code = 0;
-                $error_msg  = '';
+                $errorCode = 0;
+                $errorMsg  = '';
                 try
                 {
                     if (empty($persistent))
@@ -182,20 +181,20 @@ class Factory extends Driver
                 }
                 catch (Exception $e)
                 {
-                    $error_msg  = $e->getMessage();
-                    $error_code = $e->getCode();
-                    $tmpLink    = false;
+                    $errorMsg  = $e->getMessage();
+                    $errorCode = $e->getCode();
+                    $tmpLink   = false;
                 }
 
                 if (false === $tmpLink)
                 {
                     if (HAVE_MYQEE_CORE && IS_DEBUG)throw $e;
 
-                    if (!($error_msg && 2===$error_code && preg_match('#(Unknown database|Access denied for user)#i', $error_msg)))
+                    if (!($errorMsg && 2 === $errorCode && preg_match('#(Unknown database|Access denied for user)#i', $errorMsg)))
                     {
-                        $error_msg = 'connect mysqli server error.';
+                        $errorMsg = 'connect mysqli server error.';
                     }
-                    throw new Exception($error_msg, $error_code);
+                    throw new Exception($errorMsg, $errorCode);
                 }
 
                 if (HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->info("mysqli://{$username}@{$hostname}:{$port}/{$database}/ connection time: " . (microtime(true) - $time));
@@ -210,7 +209,7 @@ class Factory extends Driver
                 static::$currentDatabases[$connectionId] = $database;
 
                 # 设置计数器
-                static::$_connectionInstanceCount[$connectionId] = 1;
+                static::$connectionInstanceCount[$connectionId] = 1;
 
                 unset($tmpLink);
 
@@ -221,11 +220,11 @@ class Factory extends Driver
                 if (HAVE_MYQEE_CORE && IS_DEBUG)
                 {
                     Core::debug()->error($username.'@'.$hostname.':'.$port.'.Msg:'.strip_tags($e->getMessage(), '') .'.Code:'. $e->getCode(), 'connect mysqli server error');
-                    $last_error = new Exception($e->getMessage(), $e->getCode());
+                    $lastError = new Exception($e->getMessage(), $e->getCode());
                 }
                 else
                 {
-                    $last_error = new Exception('connect mysqli server error', $e->getCode());
+                    $lastError = new Exception('connect mysqli server error', $e->getCode());
                 }
 
                 if (2 === $e->getCode() && preg_match('#(Unknown database|Access denied for user)#i', $e->getMessage(), $m))
@@ -248,7 +247,7 @@ class Factory extends Driver
      * @return bool
      * @throws Exception
      */
-    protected function _tryUseExistsConnection()
+    protected function tryUseExistsConnection()
     {
         # 检查下是否已经有连接连上去了
         if (static::$connectionInstance)
@@ -275,14 +274,14 @@ class Factory extends Driver
             # 先检查是否已经有相同的连接连上了数据库
             foreach ($hostConfig as $host)
             {
-                $connectionId = $this->_getConnectionHash($host, $this->config['connection']['port'], $this->config['connection']['username']);
+                $connectionId = $this->getConnectionHash($host, $this->config['connection']['port'], $this->config['connection']['username']);
 
                 if (isset(static::$connectionInstance[$connectionId]))
                 {
                     $this->connectionIds[$this->connectionType] = $connectionId;
 
                     # 计数器+1
-                    static::$_connectionInstanceCount[$connectionId]++;
+                    static::$connectionInstanceCount[$connectionId]++;
 
                     return true;
                 }
@@ -353,20 +352,20 @@ class Factory extends Driver
         {
             if ($connectionId && static::$connectionInstance[$connectionId])
             {
-                if (isset(static::$_connectionInstanceCount[$connectionId]) && static::$_connectionInstanceCount[$connectionId]>1)
+                if (isset(static::$connectionInstanceCount[$connectionId]) && static::$connectionInstanceCount[$connectionId]>1)
                 {
-                    static::$_connectionInstanceCount[$connectionId]--;
+                    static::$connectionInstanceCount[$connectionId]--;
                 }
                 else
                 {
                     $link = static::$connectionInstance[$connectionId];
-                    $id   = static::$_currentConnectionIdToHostname[$connectionId];
+                    $id   = static::$currentConnectionIdToHostname[$connectionId];
 
                     unset(static::$connectionInstance[$connectionId]);
-                    unset(static::$_connectionInstanceCount[$connectionId]);
+                    unset(static::$connectionInstanceCount[$connectionId]);
                     unset(static::$currentDatabases[$connectionId]);
                     unset(static::$currentCharset[$connectionId]);
-                    unset(static::$_currentConnectionIdToHostname[$connectionId]);
+                    unset(static::$currentConnectionIdToHostname[$connectionId]);
 
                     try
                     {
@@ -482,16 +481,16 @@ class Factory extends Driver
      *
      * @param string $sql 查询语句
      * @param string $asObject 是否返回对象
-     * @param boolean $connectionType 是否使用主数据库，不设置则自动判断
-     * @return \MyQEE\Database\Driver\MySQLi\Result
+     * @param boolean $useMaster 是否使用主数据库，不设置则自动判断
+     * @return Result
      */
-    public function query($sql, $asObject = null, $connectionType = null)
+    public function query($sql, $asObject = null, $useMaster = null)
     {
         $sql  = trim($sql);
-        $type = $this->_getQueryType($sql, $connectionType);
+        $type = $this->getQueryType($sql, $useMaster);
 
         # 设置连接类型
-        $this->_setConnectionType($connectionType);
+        $this->setConnectionType($useMaster);
 
         # 连接数据库
         $connection = $this->connection();
@@ -503,7 +502,7 @@ class Factory extends Driver
 
             static $isSqlDebug = null;
 
-            if (null === $isSqlDebug) $isSqlDebug = (bool)Core::debug()->profiler('sql')->is_open();
+            if (null === $isSqlDebug) $isSqlDebug = (bool)Core::debug()->profiler('sql')->isOpen();
 
             if ($isSqlDebug)
             {
@@ -611,7 +610,7 @@ class Factory extends Driver
         else
         {
             // Return an iterator of results
-            return new Driver_MySQLi_Result($result, $sql, $asObject, $this->config);
+            return new Result($result, $sql, $asObject, $this->config);
         }
     }
 }

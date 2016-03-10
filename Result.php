@@ -31,7 +31,7 @@ class Result extends \MyQEE\Database\Result
         }
         else
         {
-            $count = count($this->_data);
+            $count = count($this->data);
         }
 
         return $count;
@@ -39,11 +39,11 @@ class Result extends \MyQEE\Database\Result
 
     public function seek($offset)
     {
-        if (isset($this->_data[$offset]))
+        if (isset($this->data[$offset]))
         {
             return true;
         }
-        elseif ($this->offsetExists($offset) && $this->result && mysqli_data_seek($this->result, $offset))
+        elseif ($this->offsetExists($offset) && $this->result && \mysqli_data_seek($this->result, $offset))
         {
             $this->currentRow = $this->internalRow = $offset;
 
@@ -57,6 +57,6 @@ class Result extends \MyQEE\Database\Result
 
     protected function fetchAssoc()
     {
-        return mysqli_fetch_assoc($this->result);
+        return \mysqli_fetch_assoc($this->result);
     }
 }
