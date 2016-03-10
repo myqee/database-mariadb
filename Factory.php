@@ -1,16 +1,16 @@
 <?php
-namespace MyQEE\Database\MySQLI;
+namespace MyQEE\Database\MySQLi;
 
 use MyQEE\Database\Driver;
 use \Exception;
 
 /**
- * 数据库MySQLI返回类
+ * 数据库MySQLi返回类
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
  * @package    Driver
- * @subpackage MySQLI
+ * @subpackage MySQLi
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
@@ -483,7 +483,7 @@ class Factory extends Driver
      * @param string $sql 查询语句
      * @param string $asObject 是否返回对象
      * @param boolean $connectionType 是否使用主数据库，不设置则自动判断
-     * @return \MyQEE\Database\Driver\MySQLI\Result
+     * @return \MyQEE\Database\Driver\MySQLi\Result
      */
     public function query($sql, $asObject = null, $connectionType = null)
     {
@@ -611,7 +611,7 @@ class Factory extends Driver
         else
         {
             // Return an iterator of results
-            return new Driver_MySQLI_Result($result, $sql, $asObject, $this->config);
+            return new Driver_MySQLi_Result($result, $sql, $asObject, $this->config);
         }
     }
 }

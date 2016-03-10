@@ -1,16 +1,16 @@
 <?php
 
-namespace MyQEE\Database\MySQLI;
+namespace MyQEE\Database\MySQLi;
 
 use \Exception;
 
 /**
- * MySQLI事务
+ * MySQLi事务
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
  * @package    Driver
- * @subpackage MySQLI
+ * @subpackage MySQLi
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */

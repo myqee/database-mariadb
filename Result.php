@@ -1,13 +1,13 @@
 <?php
-namespace MyQEE\Database\MySQLI;
+namespace MyQEE\Database\MySQLi;
 
 /**
- * 数据库MySQLI返回类
+ * 数据库MySQLi返回类
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
  * @package    Driver
- * @subpackage MySQLI
+ * @subpackage MySQLi
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
