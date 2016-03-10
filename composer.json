@@ -13,7 +13,7 @@
   ],
   "type": "database",
   "extra": {
-    "dir": "MySQLI"
+    "dir": "MySQLi"
   },
   "require": {
     "php": ">=5.4.0",
