@@ -1,6 +1,7 @@
 <?php
 namespace MyQEE\Database\MySQLi;
 
+use \MyQEE\Database\DriverSQL;
 use \Exception;
 
 /**
@@ -13,7 +14,7 @@ use \Exception;
  * @copyright  Copyright (c) 2008-2016 myqee.com
  * @license    http://www.myqee.com/license.html
  */
-class Driver extends \MyQEE\Database\Driver
+class Driver extends DriverSQL
 {
     /**
      * MySQL使用反引号标识符
@@ -34,437 +35,157 @@ class Driver extends \MyQEE\Database\Driver
      *
      * @var bool
      */
-    protected $mysql = true;
+    protected $isMySQL = true;
 
-    /**
-     * 记录当前连接所对应的数据库
-     * @var array
-     */
-    protected static $currentDatabases = [];
-
-    /**
-     * 记录当前数据库所对应的页面编码
-     * @var array
-     */
-    protected static $currentCharset = [];
-
-    /**
-     * 链接寄存器
-     * @var array
-     */
-    protected static $connectionInstance = [];
-
-    /**
-     * 链接寄存器使用数
-     *
-     * @var array
-     */
-    protected static $connectionInstanceCount = [];
-
-    /**
-     * 记录connection id所对应的hostname
-     *
-     * @var array
-     */
-    protected static $currentConnectionIdToHostname = [];
 
     /**
      * 连接数据库
      *
-     * $use_connection_type 默认不传为自动判断，可传true/false,若传字符串(只支持a-z0-9的字符串)，则可以切换到另外一个连接，比如传other,则可以连接到$this->_connection_other_id所对应的ID的连接
-     *
-     * @param boolean $useConnectionType 是否使用主数据库
+     * @param array $config
+     * @return string 返回连接的id
      */
-    public function connect($useConnectionType = null)
+    public function doConnect(array $config)
     {
-        if (null !== $useConnectionType)
-        {
-            $this->setConnectionType($useConnectionType);
-        }
-
-        $connectionId = $this->connectionId();
-
-        # 最后检查连接时间
-        static $lastCheckConnectTime = 0;
-
-        if (!$connectionId || !isset(static::$connectionInstance[$connectionId]))
-        {
-            $this->doConnect();
-        }
-
-        # 如果有当前连接，检查连接
-        if ($lastCheckConnectTime > 0 && time() - $lastCheckConnectTime >= 5)
-        {
-            # 5秒后检查一次连接状态
-            $this->_checkConnect();
-        }
-
-        # 设置编码
-        $this->setCharset($this->config['charset']);
-
-        # 切换表
-        $this->selectDatabase($this->config['connection']['database']);
-
-        $lastCheckConnectTime = time();
-    }
-
-    /**
-     * 获取当前连接
-     *
-     * @return \mysqli
-     */
-    public function connection()
-    {
-        # 尝试连接数据库
-        $this->connect();
-
-        # 获取连接ID
-        $connectionId = $this->connectionId();
-
-        if ($connectionId && isset(static::$connectionInstance[$connectionId]))
-        {
-            return static::$connectionInstance[$connectionId];
-        }
-        else
-        {
-            throw new Exception('数据库连接异常');
-        }
-    }
-
-    protected function doConnect()
-    {
-        if ($this->tryUseExistsConnection())
-        {
-            return;
-        }
-
-        $database = $hostname = $port = $socket = $username = $password = $persistent = null;
-        extract($this->config['connection']);
-
-        # 错误服务器
-        static $errorHost = array();
-
-        $lastError = null;
-        while (true)
-        {
-            $hostname = $this->getRandHost($errorHost);
-
-            if (false === $hostname)
-            {
-                if(HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->warn($errorHost, 'errorHost');
-
-                if ($lastError && $lastError instanceof Exception)throw $lastError;
-                throw new Exception('connect mysqli server error.');
-            }
-
-            $connectionId                                         = $this->getConnectionHash($hostname, $port, $username);
-            static::$currentConnectionIdToHostname[$connectionId] = $username .'@'. $hostname .':'. $port;
-
-            try
-            {
-                $time = microtime(true);
-
-                $errorCode = 0;
-                $errorMsg  = '';
-                try
-                {
-                    if (empty($persistent))
-                    {
-                        $tmpLink = mysqli_init();
-                        mysqli_options($tmpLink, MYSQLI_OPT_CONNECT_TIMEOUT, 3);
-                        mysqli_real_connect($tmpLink, $hostname, $username, $password, $database, $port, null, \MYSQLI_CLIENT_COMPRESS);
-                    }
-                    else
-                    {
-                        $tmpLink = new \mysqli($hostname, $username, $password, $database, $port);
-                    }
-                }
-                catch (Exception $e)
-                {
-                    $errorMsg  = $e->getMessage();
-                    $errorCode = $e->getCode();
-                    $tmpLink   = false;
-                }
-
-                if (false === $tmpLink)
-                {
-                    if (HAVE_MYQEE_CORE && IS_DEBUG)throw $e;
-
-                    if (!($errorMsg && 2 === $errorCode && preg_match('#(Unknown database|Access denied for user)#i', $errorMsg)))
-                    {
-                        $errorMsg = 'connect mysqli server error.';
-                    }
-                    throw new Exception($errorMsg, $errorCode);
-                }
-
-                if (HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->info("mysqli://{$username}@{$hostname}:{$port}/{$database}/ connection time: " . (microtime(true) - $time));
-
-                # 连接ID
-                $this->connectionIds[$this->connectionType] = $connectionId;
-
-                # 设置实例化对象
-                static::$connectionInstance[$connectionId] = $tmpLink;
-
-                # 设置当前连接的数据库
-                static::$currentDatabases[$connectionId] = $database;
-
-                # 设置计数器
-                static::$connectionInstanceCount[$connectionId] = 1;
-
-                unset($tmpLink);
-
-                break;
-            }
-            catch (Exception $e)
-            {
-                if (HAVE_MYQEE_CORE && IS_DEBUG)
-                {
-                    Core::debug()->error($username.'@'.$hostname.':'.$port.'.Msg:'.strip_tags($e->getMessage(), '') .'.Code:'. $e->getCode(), 'connect mysqli server error');
-                    $lastError = new Exception($e->getMessage(), $e->getCode());
-                }
-                else
-                {
-                    $lastError = new Exception('connect mysqli server error', $e->getCode());
-                }
-
-                if (2 === $e->getCode() && preg_match('#(Unknown database|Access denied for user)#i', $e->getMessage(), $m))
-                {
-                    // 指定的库不存在，直接返回
-                    throw new Exception(strtolower($m[1]) === 'unknown database' ? __('The mysql database does not exist') : __('The mysql database account or password error'));
-                }
-                else
-                {
-                    if (!in_array($hostname, $errorHost))
-                    {
-                        $errorHost[] = $hostname;
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * @return bool
-     * @throws Exception
-     */
-    protected function tryUseExistsConnection()
-    {
-        # 检查下是否已经有连接连上去了
-        if (static::$connectionInstance)
-        {
-            $hostname = $this->config['connection']['hostname'];
-            if (is_array($hostname))
-            {
-                $hostConfig = $hostname[$this->connectionType];
-                if (!$hostConfig)
-                {
-                    throw new Exception('指定的数据库连接主从配置中('.$this->connectionType.')不存在，请检查配置');
-                }
-
-                if (!is_array($hostConfig))
-                {
-                    $hostConfig = [$hostConfig];
-                }
-            }
-            else
-            {
-                $hostConfig = [$hostname];
-            }
-
-            # 先检查是否已经有相同的连接连上了数据库
-            foreach ($hostConfig as $host)
-            {
-                $connectionId = $this->getConnectionHash($host, $this->config['connection']['port'], $this->config['connection']['username']);
-
-                if (isset(static::$connectionInstance[$connectionId]))
-                {
-                    $this->connectionIds[$this->connectionType] = $connectionId;
-
-                    # 计数器+1
-                    static::$connectionInstanceCount[$connectionId]++;
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * 检查连接是否可用
-     *
-     * 防止因长时间不链接而导致连接丢失的问题 MySQL server has gone away
-     *
-     * @throws Exception
-     */
-    protected function _checkConnect()
-    {
-        # 5秒检测1次
-        static $error_num = 0;
         try
         {
-            $connectionId = $this->connectionId();
-            $connection   = static::$connectionInstance[$connectionId];
-
-            if ($connection)
+            if (empty($persistent))
             {
-                $pingStatus = \mysqli_ping($connection);
+                $resource = \mysqli_init();
+
+                \mysqli_options($resource, \MYSQLI_OPT_CONNECT_TIMEOUT, 3);
+
+                if (isset($this->config['option']) && is_array($this->config['option']))
+                {
+                    foreach ($this->config['option'] as $k => $v)
+                    {
+                        \mysqli_options($resource, $k, $v);
+                    }
+                }
+
+                \mysqli_real_connect($resource, $config['hostname'], $config['username'], $config['password'], $config['database'], $config['port'], null, \MYSQLI_CLIENT_COMPRESS);
             }
             else
             {
-                $pingStatus = false;
+                $resource = new \mysqli($config['hostname'], $config['username'], $config['password'], $config['database'], $config['port']);
             }
+
+            # 设置语言
+            $resource->set_charset($this->config['charset']);
+
+            return $resource;
         }
         catch (Exception $e)
         {
-            $error_num++;
-            $pingStatus = false;
-        }
-
-        if (!$pingStatus)
-        {
-            if ($error_num < 5)
+            if (2 === $e->getCode() && preg_match('#(Unknown database|Access denied for user)#i', $e->getMessage(), $m))
             {
-                $this->closeConnect();
-
-                # 等待3毫秒
-                usleep(3000);
-
-                # 再次尝试连接
-                $this->connect();
-                $error_num = 0;
+                # 指定的库不存在，直接返回
+                $lastError = strtolower($m[1]) === 'unknown database' ? __('The mysql database does not exist') : __('The mysql database account or password error');
             }
             else
             {
-                throw new Exception('connect mysqli server error');
+                $lastError = $e->getMessage();
             }
+
+            $lastErrorCode = $e->getCode();
         }
 
+        throw new Exception($lastError, $lastErrorCode);
     }
 
     /**
-     * 关闭链接
+     * 检查连接（每5秒钟间隔才检测）
+     *
+     * @param $id
+     * @param int $limit 时间间隔（秒）, 0 表示一直检查
+     * @return bool
      */
+    protected function checkConnect($id, $limit = 5)
+    {
+        $tmp = $this->connections[$id];
+
+        if (0 === $limit || time() - $tmp['time'] > $limit)
+        {
+            if (\mysqli_ping($tmp['resource']))
+            {
+                return true;
+            }
+            else
+            {
+                # 自动移除失败的连接
+                $this->release($id);
+
+                return false;
+            }
+        }
+        else
+        {
+            return true;
+        }
+    }
+
     public function closeConnect()
     {
-        if ($this->connectionIds)foreach ($this->connectionIds as $key=> $connectionId)
+        if ($this->connections)
         {
-            if ($connectionId && static::$connectionInstance[$connectionId])
+            foreach ($this->connections as $key => $connection)
             {
-                if (isset(static::$connectionInstanceCount[$connectionId]) && static::$connectionInstanceCount[$connectionId]>1)
-                {
-                    static::$connectionInstanceCount[$connectionId]--;
-                }
-                else
-                {
-                    $link = static::$connectionInstance[$connectionId];
-                    $id   = static::$currentConnectionIdToHostname[$connectionId];
+                $connection['resource']->close();
 
-                    unset(static::$connectionInstance[$connectionId]);
-                    unset(static::$connectionInstanceCount[$connectionId]);
-                    unset(static::$currentDatabases[$connectionId]);
-                    unset(static::$currentCharset[$connectionId]);
-                    unset(static::$currentConnectionIdToHostname[$connectionId]);
-
-                    try
-                    {
-                        \mysqli_close($link);
-                    }
-                    catch(Exception $e){}
-
-                    unset($link);
-
-                    if(HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->info('close '. $key .' mysqli '. $id .' connection.');
-                }
+                if(HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->info('close '. $key .' connection.');
             }
 
-            $this->connectionIds[$key] = null;
+            $this->connectionId = null;
+            $this->connections  = [];
         }
     }
 
     /**
      * 切换表
      *
-     * @param string \MyQEE\Database\DB
-     * @return void
-     */
-    public function selectDatabase($database)
-    {
-        if (!$database)return;
-
-        $connection_id = $this->connectionId();
-
-        if (!$connection_id || !isset(static::$currentDatabases[$connection_id]) || $database !== static::$currentDatabases[$connection_id])
-        {
-            $connection = static::$connectionInstance[$connection_id];
-
-            if (!$connection)
-            {
-                $this->connect();
-                $this->selectDatabase($database);
-                return;
-            }
-
-            if (!\mysqli_select_db($connection, $database))
-            {
-                throw new Exception('选择数据表错误:' . \mysqli_error($connection), \mysqli_errno($connection));
-            }
-
-            if (HAVE_MYQEE_CORE && IS_DEBUG)
-            {
-                $host = $this->getHostnameByConnectionHash($this->connectionId());
-                Core::debug()->info(($host['username']?$host['username'].'@':'') . $host['hostname'] . ($host['port'] && $host['port']!='3306'?':'.$host['port']:'').'select to db:'.$database);
-            }
-
-            # 记录当前已选中的数据库
-            static::$currentDatabases[$connection_id] = $database;
-        }
-    }
-
-
-    /**
-     * 设置编码
-     *
-     * @param string $charset
+     * @param $database
+     * @return bool|void
      * @throws Exception
-     * @return void|boolean
      */
-    public function setCharset($charset)
+    public function selectDB($database)
     {
-        if (!$charset)return false;
+        if (!$database)return false;
 
-        $connectionId = $this->connectionId();
-        $connection   = static::$connectionInstance[$connectionId];
+        if (!$this->connectionId)return false;
 
-        if (!$connectionId || !$connection)
+        $connection = $this->connections[$this->connectionId];
+
+        if ($connection['database'] !== $database)
         {
-            $this->connect();
-            return $this->setCharset($charset);
-        }
+            if (\mysqli_select_db($connection['resource'], $database))
+            {
+                $this->connections[$this->connectionId]['database'] = $database;
 
-        if (isset(static::$currentCharset[$connectionId]) && $charset == static::$currentCharset[$connectionId])
+                return true;
+            }
+            else
+            {
+                throw new Exception('选择数据表错误:' . \mysqli_error($connection['resource']), \mysqli_errno($connection['resource']));
+            }
+        }
+        else
         {
-            return true;
+            return false;
         }
-
-        $status = mysqli_set_charset($connection, $charset);
-        if (false === $status)
-        {
-            throw new Exception('Error:' . \mysqli_error($connection), \mysqli_errno($connection));
-        }
-
-        # 记录当前设置的编码
-        static::$currentCharset[$connectionId] = $charset;
-
-        return true;
     }
 
     public function escape($value)
     {
-        $connection = $this->connection();
+        if ($this->currentConnection)
+        {
+            # 直接使用当前连接
+            $connection = $this->currentConnection;
+        }
+        else
+        {
+            $connection = $this->connection();
+        }
 
-        $this->changeCharset($value);
+        $this->convertEncoding($value);
 
         if (($value = \mysqli_real_escape_string($connection, $value)) === false)
         {
@@ -479,21 +200,49 @@ class Driver extends \MyQEE\Database\Driver
      *
      * $use_connection_type 默认不传为自动判断，可传true/false,若传字符串(只支持a-z0-9的字符串)，则可以切换到另外一个连接，比如传other,则可以连接到$this->_connection_other_id所对应的ID的连接
      *
-     * @param string $sql 查询语句
+     * @param string|\MyQEE\Database\QueryBuilder $sql 查询语句
      * @param string $asObject 是否返回对象
-     * @param boolean $useMaster 是否使用主数据库，不设置则自动判断
+     * @param boolean $clusterName 是否使用主数据库，不设置则自动判断
      * @return Result
      */
-    public function query($sql, $asObject = null, $useMaster = null)
+    public function query($sql, $asObject = null, $clusterName = null)
     {
-        $sql  = trim($sql);
-        $type = $this->getQueryType($sql, $useMaster);
+        if (is_object($sql) && $sql instanceof \MyQEE\Database\QueryBuilder)
+        {
+            if (null === $clusterName)
+            {
+                # select 查询, 默认使用 slave
+                $clusterName = 'slave';
+            }
+            elseif (true === $clusterName)
+            {
+                # 设置了使用主库
+                $clusterName = 'master';
+            }
 
-        # 设置连接类型
-        $this->setConnectionType($useMaster);
+            # 由于解析sql语句时用到 mysqli_real_escape_string, 需要先连接到数据库上
+            $connection = $this->connection($clusterName);
 
-        # 连接数据库
-        $connection = $this->connection();
+            # 生成SQL语句
+            $sql = $this->compile($sql->getAndResetBuilder(), 'select');
+
+            $sqlType = 'select';
+        }
+        else
+        {
+            $sql = trim($sql);
+            list($sqlType, $needMaster) = $this->getQueryType($sql);
+
+            if ($needMaster)
+            {
+                $clusterName = 'master';
+            }
+
+            /**
+             * @var $connection \mysqli
+             */
+            $connection = $this->connection($clusterName);
+        }
 
         # 记录调试
         if(HAVE_MYQEE_CORE && IS_DEBUG)
@@ -502,18 +251,20 @@ class Driver extends \MyQEE\Database\Driver
 
             static $isSqlDebug = null;
 
-            if (null === $isSqlDebug) $isSqlDebug = (bool)Core::debug()->profiler('sql')->isOpen();
+            if (null === $isSqlDebug)
+            {
+                $isSqlDebug = (bool)Core::debug()->profiler('sql')->isOpen();
+            }
 
             if ($isSqlDebug)
             {
-                $host      = $this->getHostnameByConnectionHash($this->connectionId());
-                $benchmark = Core::debug()->profiler('sql')->start('Database', 'mysqli://' . ($host['username']?$host['username'].'@':'') . $host['hostname'] . ($host['port'] && $host['port'] != '3306' ? ':' . $host['port'] : ''));
+                $benchmark = Core::debug()->profiler('sql')->start('Database', $this->connectionId);
             }
         }
 
         static $isNoCache = null;
 
-        if (null === $isNoCache) $isNoCache = (bool)Core::debug()->profiler('nocached')->is_open();
+        if (null === $isNoCache) $isNoCache = HAVE_MYQEE_CORE && IS_DEBUG ? (bool)Core::debug()->profiler('nocached')->is_open() : false;
 
         //显示无缓存数据
         if ($isNoCache && strtoupper(substr($sql, 0, 6)) === 'SELECT')
@@ -521,12 +272,13 @@ class Driver extends \MyQEE\Database\Driver
             $sql = 'SELECT SQL_NO_CACHE' . substr($sql, 6);
         }
 
-        // Execute the query
-        if (($result = \mysqli_query($connection, $sql)) === false)
+        if (($result = $connection->query($sql)) === false)
         {
             if (isset($benchmark))
             {
-                // This benchmark is worthless
+                /**
+                 * @var $benchmark \MyQEE\Develop\Profiler
+                 */
                 $benchmark->delete();
             }
 
@@ -538,6 +290,9 @@ class Driver extends \MyQEE\Database\Driver
             {
                 $err = \mysqli_error($connection);
             }
+
+            $this->release();
+
             throw new Exception($err, \mysqli_errno($connection));
         }
 
@@ -547,14 +302,14 @@ class Driver extends \MyQEE\Database\Driver
             if ($isSqlDebug)
             {
                 $data = array();
-                $data[0]['db']            = $host['hostname'] . '/' . $this->config['connection']['database'] . '/';
+                $data[0]['db']            = $this->connectionId . $this->connections[$this->connectionId]->database;
                 $data[0]['select_type']   = '';
                 $data[0]['table']         = '';
                 $data[0]['key']           = '';
                 $data[0]['key_len']       = '';
                 $data[0]['Extra']         = '';
                 $data[0]['query']         = '';
-                $data[0]['type']          = '';
+                $data[0]['sqlType']          = '';
                 $data[0]['id']            = '';
                 $data[0]['row']           = count($result);
                 $data[0]['ref']           = '';
@@ -572,8 +327,8 @@ class Driver extends \MyQEE\Database\Driver
                         $data[$i]['key']              = (string)$row[5];
                         $data[$i]['key_len']          = (string)$row[6];
                         $data[$i]['Extra']            = (string)$row[9];
-                        if ($i==0) $data[$i]['query'] = '';
-                        $data[$i]['type']             = (string)$row[3];
+                        if ($i == 0) $data[$i]['query'] = '';
+                        $data[$i]['sqlType']             = (string)$row[3];
                         $data[$i]['id']               = (string)$row[0];
                         $data[$i]['ref']              = (string)$row[7];
                         $data[$i]['all rows']         = (string)$row[8];
@@ -594,7 +349,7 @@ class Driver extends \MyQEE\Database\Driver
         // Set the last query
         $this->lastQuery = $sql;
 
-        if ($type === 'INSERT' || $type === 'REPLACE')
+        if ($sqlType === 'INSERT' || $sqlType === 'REPLACE')
         {
             // Return a list of insert id and rows created
             return [
@@ -602,7 +357,7 @@ class Driver extends \MyQEE\Database\Driver
                 \mysqli_affected_rows($connection)
             ];
         }
-        elseif ($type === 'UPDATE' || $type === 'DELETE')
+        elseif ($sqlType === 'UPDATE' || $sqlType === 'DELETE')
         {
             // Return the number of rows affected
             return \mysqli_affected_rows($connection);

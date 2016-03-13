@@ -13,29 +13,15 @@ namespace MyQEE\Database\MySQLi;
  */
 class Result extends \MyQEE\Database\Result
 {
-    protected function releaseResource()
+    public function free()
     {
-        if (is_resource($this->result))
+        if ($this->result)
         {
-            \mysqli_free_result($this->result);
+            $this->result->free();
         }
         $this->result = null;
     }
 
-    protected function totalCount()
-    {
-        if ($this->result)
-        {
-            $count = @mysqli_num_rows($this->result);
-            if (!$count>0)$count = 0;
-        }
-        else
-        {
-            $count = count($this->data);
-        }
-
-        return $count;
-    }
 
     public function seek($offset)
     {
@@ -43,7 +29,7 @@ class Result extends \MyQEE\Database\Result
         {
             return true;
         }
-        elseif ($this->offsetExists($offset) && $this->result && \mysqli_data_seek($this->result, $offset))
+        elseif ($this->offsetExists($offset) && $this->result && $this->result->data_seek($offset))
         {
             $this->currentRow = $this->internalRow = $offset;
 
@@ -55,8 +41,24 @@ class Result extends \MyQEE\Database\Result
         }
     }
 
-    protected function fetchAssoc()
+    public function fetchAssoc()
     {
-        return \mysqli_fetch_assoc($this->result);
+        return $this->result->fetch_assoc();
+    }
+
+    protected function totalCount()
+    {
+        if ($this->result)
+        {
+            $count = @$this->result->num_rows;
+
+            if (!$count>0)$count = 0;
+        }
+        else
+        {
+            $count = count($this->data);
+        }
+
+        return $count;
     }
 }

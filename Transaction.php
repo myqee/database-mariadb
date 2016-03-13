@@ -5,7 +5,7 @@ namespace MyQEE\Database\MySQLi;
 use \Exception;
 
 /**
- * MySQLi事务
+ * MySQLi 事务
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
@@ -22,6 +22,17 @@ class Transaction extends \MyQEE\Database\Transaction
      */
     protected $connectionId;
 
+    /**
+     * 记录事务
+     *
+     *      [
+     *          '连接ID'=>'父事务ID',
+     *          '连接ID'=>'父事务ID',
+     *          ...
+     *      ]
+     *
+     * @var array
+     */
     protected static $transactions = [];
 
     /**
@@ -35,11 +46,10 @@ class Transaction extends \MyQEE\Database\Transaction
         {
             throw new Exception('transaction has started');
         }
-        # 推动连接主数据库
-        $this->driver->connect(true);
 
         # 获取连接ID
-        $this->connectionId = $this->driver->connectionId();
+        $this->connectionId = $this->driver->connection(true);
+
         # 获取唯一ID
         $this->id = uniqid('TaId_' . rand());
 
@@ -141,7 +151,7 @@ class Transaction extends \MyQEE\Database\Transaction
 
         if ($this->isRoot())
         {
-            //父事务
+            # 父事务
             $status = $this->query('ROLLBACK;');
             $this->query('SET AUTOCOMMIT=1;');
             if ($status)
@@ -151,7 +161,7 @@ class Transaction extends \MyQEE\Database\Transaction
         }
         else
         {
-            //子事务
+            # 子事务
             $status = $this->query("ROLLBACK TO SAVEPOINT {$this->id};");
 
             $this->releaseSavePoint($this->id);
