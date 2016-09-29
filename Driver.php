@@ -131,7 +131,7 @@ class Driver extends DriverSQL
             {
                 $connection['resource']->close();
 
-                if(HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->info('close '. $key .' connection.');
+                if(INCLUDE_MYQEE_CORE && IS_DEBUG)Core::debug()->info('close '. $key .' connection.');
             }
 
             $this->connectionId = null;
@@ -245,7 +245,7 @@ class Driver extends DriverSQL
         }
 
         # 记录调试
-        if(HAVE_MYQEE_CORE && IS_DEBUG)
+        if(INCLUDE_MYQEE_CORE && IS_DEBUG)
         {
             Core::debug()->info($sql, 'MySQL');
 
@@ -264,7 +264,7 @@ class Driver extends DriverSQL
 
         static $isNoCache = null;
 
-        if (null === $isNoCache) $isNoCache = HAVE_MYQEE_CORE && IS_DEBUG ? (bool)Core::debug()->profiler('nocached')->is_open() : false;
+        if (null === $isNoCache) $isNoCache = INCLUDE_MYQEE_CORE && IS_DEBUG ? (bool)Core::debug()->profiler('nocached')->is_open() : false;
 
         //显示无缓存数据
         if ($isNoCache && strtoupper(substr($sql, 0, 6)) === 'SELECT')
@@ -282,7 +282,7 @@ class Driver extends DriverSQL
                 $benchmark->delete();
             }
 
-            if (HAVE_MYQEE_CORE && IS_DEBUG)
+            if (INCLUDE_MYQEE_CORE && IS_DEBUG)
             {
                 $err = 'Error:' . \mysqli_error($connection) . '. SQL:' . $sql;
             }
@@ -343,7 +343,7 @@ class Driver extends DriverSQL
             {
                 $data = null;
             }
-            if(HAVE_MYQEE_CORE && IS_DEBUG)Core::debug()->profiler('sql')->stop($data);
+            if(INCLUDE_MYQEE_CORE && IS_DEBUG)Core::debug()->profiler('sql')->stop($data);
         }
 
         // Set the last query
