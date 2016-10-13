@@ -328,7 +328,7 @@ class Driver extends DriverSQL
                         $data[$i]['key_len']          = (string)$row[6];
                         $data[$i]['Extra']            = (string)$row[9];
                         if ($i == 0) $data[$i]['query'] = '';
-                        $data[$i]['sqlType']             = (string)$row[3];
+                        $data[$i]['sqlType']          = (string)$row[3];
                         $data[$i]['id']               = (string)$row[0];
                         $data[$i]['ref']              = (string)$row[7];
                         $data[$i]['all rows']         = (string)$row[8];
