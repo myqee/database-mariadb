@@ -44,7 +44,7 @@ class Driver extends DriverSQL
      * @param array $config
      * @return string 返回连接的id
      */
-    public function doConnect(array $config)
+    public function doConnect(array & $config)
     {
         try
         {
