@@ -1,17 +1,17 @@
 <?php
-namespace MyQEE\Database\MySQLi;
+namespace MyQEE\Database\MariaDB;
 
 use \MyQEE\Database\DriverSQL;
 use \Exception;
 
 /**
- * 数据库MySQLi返回类
+ * 数据库 MariaDB 返回类
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
  * @package    Driver
- * @subpackage MySQLi
- * @copyright  Copyright (c) 2008-2016 myqee.com
+ * @subpackage MariaDB
+ * @copyright  Copyright (c) 2008-2018 myqee.com
  * @license    http://www.myqee.com/license.html
  */
 class Driver extends DriverSQL
@@ -143,8 +143,8 @@ class Driver extends DriverSQL
      * 切换表
      *
      * @param $database
-     * @return bool|void
      * @throws Exception
+     * @return bool
      */
     public function selectDB($database)
     {
@@ -203,7 +203,7 @@ class Driver extends DriverSQL
      * @param string|\MyQEE\Database\QueryBuilder $sql 查询语句
      * @param string $asObject 是否返回对象
      * @param boolean $clusterName 是否使用主数据库，不设置则自动判断
-     * @return Result
+     * @return Result|array|int
      */
     public function query($sql, $asObject = null, $clusterName = null)
     {
@@ -351,7 +351,6 @@ class Driver extends DriverSQL
 
         if ($sqlType === 'INSERT' || $sqlType === 'REPLACE')
         {
-            // Return a list of insert id and rows created
             return [
                 \mysqli_insert_id($connection),
                 \mysqli_affected_rows($connection)
@@ -359,13 +358,11 @@ class Driver extends DriverSQL
         }
         elseif ($sqlType === 'UPDATE' || $sqlType === 'DELETE')
         {
-            // Return the number of rows affected
             return \mysqli_affected_rows($connection);
         }
         else
         {
-            // Return an iterator of results
-            return new Result($result, $sql, $asObject, $this->config);
+            return new Result($result, $sql, $asObject, $this->convertToUtf8FromCharset);
         }
     }
 }

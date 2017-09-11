@@ -1,5 +1,5 @@
 <?php
-namespace MyQEE\Database\MySQLi;
+namespace MyQEE\Database\MariaDB;
 
 /**
  * 数据库MySQLi返回类
@@ -7,15 +7,15 @@ namespace MyQEE\Database\MySQLi;
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
  * @package    Driver
- * @subpackage MySQLi
- * @copyright  Copyright (c) 2008-2016 myqee.com
+ * @subpackage MariaDB
+ * @copyright  Copyright (c) 2008-2018 myqee.com
  * @license    http://www.myqee.com/license.html
  */
 class Result extends \MyQEE\Database\Result
 {
     public function free()
     {
-        if ($this->result)
+        if (null !== $this->result)
         {
             $this->result->free();
         }
@@ -48,11 +48,11 @@ class Result extends \MyQEE\Database\Result
 
     protected function totalCount()
     {
-        if ($this->result)
+        if (null !== $this->result)
         {
             $count = @$this->result->num_rows;
 
-            if (!$count>0)$count = 0;
+            if (!$count > 0)$count = 0;
         }
         else
         {

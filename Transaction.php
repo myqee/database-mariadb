@@ -1,17 +1,17 @@
 <?php
 
-namespace MyQEE\Database\MySQLi;
+namespace MyQEE\Database\MariaDB;
 
 use \Exception;
 
 /**
- * MySQLi 事务
+ * MariaDB 事务
  *
  * @author     呼吸二氧化碳 <jonwang@myqee.com>
  * @category   Database
  * @package    Driver
- * @subpackage MySQLi
- * @copyright  Copyright (c) 2008-2016 myqee.com
+ * @subpackage MariaDB
+ * @copyright  Copyright (c) 2008-2018 myqee.com
  * @license    http://www.myqee.com/license.html
  */
 class Transaction extends \MyQEE\Database\Transaction
@@ -38,7 +38,8 @@ class Transaction extends \MyQEE\Database\Transaction
     /**
      * 开启事务
      *
-     * @return $this
+     * @return bool true:成功
+     * @throws Exception
      */
     public function start()
     {
@@ -71,9 +72,9 @@ class Transaction extends \MyQEE\Database\Transaction
         else
         {
             # 开启新事务
-            $this->query('SET AUTOCOMMIT=0;');
+            $this->query('SET AUTOCOMMIT=0');
 
-            if (true === $this->query('START TRANSACTION;'))
+            if (true === $this->query('START TRANSACTION'))
             {
                 # 如果没有建立到当前主服务器的连接，该操作会隐式的建立
                 static::$transactions[$this->connectionId] = [$this->id => true];
@@ -93,7 +94,7 @@ class Transaction extends \MyQEE\Database\Transaction
     /**
      * 提交事务，支持子事务
      *
-     * @return Boolean true:成功
+     * @return bool true:成功
      * @throws Exception
      */
     public function commit()
@@ -115,8 +116,8 @@ class Transaction extends \MyQEE\Database\Transaction
                     throw new Exception('commit error');
                 }
             }
-            $status = $this->query('COMMIT;');
-            $this->query('SET AUTOCOMMIT=1;');
+            $status = $this->query('COMMIT');
+            $this->query('SET AUTOCOMMIT=1');
 
             if ($status)
             {
@@ -152,8 +153,8 @@ class Transaction extends \MyQEE\Database\Transaction
         if ($this->isRoot())
         {
             # 父事务
-            $status = $this->query('ROLLBACK;');
-            $this->query('SET AUTOCOMMIT=1;');
+            $status = $this->query('ROLLBACK');
+            $this->query('SET AUTOCOMMIT=1');
             if ($status)
             {
                 unset(static::$transactions[$this->connectionId]);
@@ -162,7 +163,7 @@ class Transaction extends \MyQEE\Database\Transaction
         else
         {
             # 子事务
-            $status = $this->query("ROLLBACK TO SAVEPOINT {$this->id};");
+            $status = $this->query("ROLLBACK TO SAVEPOINT {$this->id}");
 
             $this->releaseSavePoint($this->id);
         }
@@ -197,7 +198,7 @@ class Transaction extends \MyQEE\Database\Transaction
         if (!$this->isRoot())
         {
             //只有子事务才需要保存点
-            if (true === $this->query("SAVEPOINT {$this->id};"))
+            if (true === $this->query("SAVEPOINT {$this->id}"))
             {
                 return true;
             }
@@ -214,7 +215,7 @@ class Transaction extends \MyQEE\Database\Transaction
     {
         if (!$this->isRoot())
         {
-            if (true === $this->query("RELEASE SAVEPOINT {$id};"))
+            if (true === $this->query("RELEASE SAVEPOINT {$id}"))
             {
                 unset(static::$transactions[$this->connectionId][$id]);
                 return true;

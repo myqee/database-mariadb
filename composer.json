@@ -1,7 +1,7 @@
 {
-  "name": "myqee/database-mysqli",
-  "description": "myqee mysqli database library",
-  "keywords": ["MyQEE", "Database", "Driver", "MySQLI"],
+  "name": "myqee/database-mariadb",
+  "description": "myqee maria database library",
+  "keywords": ["MyQEE", "Database", "Driver", "MySQL", "MariaDB"],
   "homepage": "http://www.myqee.com/",
   "license": "Apache-2.0",
   "authors": [
@@ -13,7 +13,7 @@
   ],
   "type": "database",
   "extra": {
-    "dir": "MySQLi"
+    "dir": "MariaDB"
   },
   "require": {
     "php": ">=5.4.0",
