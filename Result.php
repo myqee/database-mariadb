@@ -15,7 +15,7 @@ class Result extends \MyQEE\Database\Result
 {
     public function free()
     {
-        if (null !== $this->result)
+        if ($this->result)
         {
             $this->result->free();
         }
@@ -48,7 +48,7 @@ class Result extends \MyQEE\Database\Result
 
     protected function totalCount()
     {
-        if (null !== $this->result)
+        if ($this->result)
         {
             $count = @$this->result->num_rows;
 
