@@ -48,8 +48,10 @@ class Transaction extends \MyQEE\Database\Transaction
             throw new Exception('transaction has started');
         }
 
+        # 推动连接主数据库
+        $this->driver->connect(true);
         # 获取连接ID
-        $this->connectionId = $this->driver->connection(true);
+        $this->connectionId = $this->driver->connectionId();
 
         # 获取唯一ID
         $this->id = uniqid('TaId_' . rand());
