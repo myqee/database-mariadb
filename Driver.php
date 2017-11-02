@@ -203,7 +203,7 @@ class Driver extends DriverSQL
      * @param string|\MyQEE\Database\QueryBuilder $sql 查询语句
      * @param string $asObject 是否返回对象
      * @param boolean $clusterName 是否使用主数据库，不设置则自动判断
-     * @return Result|array|int
+     * @return Result|array|int|bool
      */
     public function query($sql, $asObject = null, $clusterName = null)
     {
@@ -226,7 +226,7 @@ class Driver extends DriverSQL
             # 生成SQL语句
             $sql = $this->compile($sql->getAndResetBuilder(), 'select');
 
-            $sqlType = 'select';
+            $sqlType = 'SELECT';
         }
         else
         {
@@ -360,9 +360,13 @@ class Driver extends DriverSQL
         {
             return \mysqli_affected_rows($connection);
         }
-        else
+        elseif ($sqlType === 'SELECT')
         {
             return new Result($result, $sql, $asObject, $this->convertToUtf8FromCharset);
+        }
+        else
+        {
+            return $result;
         }
     }
 }
