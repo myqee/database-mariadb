@@ -46,6 +46,23 @@ class Result extends \MyQEE\Database\Result
         return $this->result->fetch_assoc();
     }
 
+    /**
+     * 返回一个对象
+     *
+     * @return object|\stdClass
+     */
+    public function fetchObject()
+    {
+        if (is_string($this->asObject))
+        {
+            return $this->result->fetch_object($this->asObject);
+        }
+        else
+        {
+            return $this->result->fetch_object();
+        }
+    }
+
     protected function totalCount()
     {
         if ($this->result)
