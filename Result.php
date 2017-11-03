@@ -15,7 +15,7 @@ class Result extends \MyQEE\Database\Result
 {
     public function free()
     {
-        if ($this->result)
+        if (is_resource($this->result))
         {
             $this->result->free();
         }
